@@ -6,8 +6,8 @@ $saved = Get-Content -LiteralPath $processFile -Raw | ConvertFrom-Json
 foreach ($entry in @($saved.frontend, $saved.backend)) {
     $running = Get-Process -Id $entry.pid -ErrorAction SilentlyContinue
     # Protect against Windows reusing a PID after an earlier process exited.
-    if ($running -and $running.StartTime.ToUniversalTime().ToString("o") -eq $entry.started) {
-        Stop-Process -Id $entry.pid
+    if ($running -and $running.StartTime.ToUniversalTime().Ticks -eq $entry.started_ticks) {
+        & taskkill.exe /PID $entry.pid /T /F | Out-Null
         Write-Host "Stopped application process $($entry.pid)."
     }
 }

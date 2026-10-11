@@ -20,9 +20,15 @@ if (Test-Path -LiteralPath $processFile) {
     $saved = Get-Content -LiteralPath $processFile -Raw | ConvertFrom-Json
     foreach ($entry in @($saved.backend, $saved.frontend)) {
         $running = Get-Process -Id $entry.pid -ErrorAction SilentlyContinue
-        if ($running -and $running.StartTime.ToUniversalTime().ToString("o") -eq $entry.started) {
+        if ($running -and $running.StartTime.ToUniversalTime().Ticks -eq $entry.started_ticks) {
             throw "The project is already running. Use scripts/stop_project.ps1 before restarting."
         }
+    }
+}
+
+foreach ($port in @($BackendPort, $FrontendPort)) {
+    if (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) {
+        throw "Port $port is already in use. Stop the existing application before starting."
     }
 }
 
@@ -95,15 +101,15 @@ try {
     if (-not $frontendReady) { throw "Frontend startup timed out. Check .data/frontend.err.log." }
 
     @{
-        backend = @{ pid = $backendProcess.Id; started = $backendProcess.StartTime.ToUniversalTime().ToString("o") }
-        frontend = @{ pid = $frontendProcess.Id; started = $frontendProcess.StartTime.ToUniversalTime().ToString("o") }
+        backend = @{ pid = $backendProcess.Id; started_ticks = $backendProcess.StartTime.ToUniversalTime().Ticks }
+        frontend = @{ pid = $frontendProcess.Id; started_ticks = $frontendProcess.StartTime.ToUniversalTime().Ticks }
         backend_port = $BackendPort; frontend_port = $FrontendPort
     } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $processFile -Encoding UTF8
     Write-Host "DevFlow AI is running: http://localhost:$FrontendPort"
     Write-Host "API: http://127.0.0.1:$BackendPort/docs"
     Write-Host "Logs: $dataDirectory"
 } catch {
-    if ($frontendProcess -and -not $frontendProcess.HasExited) { Stop-Process -Id $frontendProcess.Id }
-    if ($backendProcess -and -not $backendProcess.HasExited) { Stop-Process -Id $backendProcess.Id }
+    if ($frontendProcess -and -not $frontendProcess.HasExited) { & taskkill.exe /PID $frontendProcess.Id /T /F | Out-Null }
+    if ($backendProcess -and -not $backendProcess.HasExited) { & taskkill.exe /PID $backendProcess.Id /T /F | Out-Null }
     throw
 }
