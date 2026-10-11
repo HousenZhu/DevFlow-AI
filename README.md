@@ -200,6 +200,8 @@ cd backend
 & ./.venv/Scripts/python.exe -m pytest app/tests -q
 ```
 
+The test profile uses SQLite and fake model/vector clients, and isolates tests from local credentials and the configured Ollama context window.
+
 Build the frontend:
 
 ```powershell
